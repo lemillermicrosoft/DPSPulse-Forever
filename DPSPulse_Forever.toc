@@ -1,0 +1,14 @@
+## Interface: 11601
+## Title: DPSPulse Forever
+## Notes: Realtime rolling DPS graph for outgoing damage. WoW Forever port.
+## Author: deehoc
+## Version: 0.1.0
+## IconTexture: Interface\AddOns\DPSPulse_Forever\Media\icon
+## SavedVariables: DPSPulseForeverDB
+## X-Curse-Project-ID: 0
+
+# TODO: confirm ## Interface value once WoW Forever beta client is inspected.
+# Guessed 11601 from client version 1.60.1. If load fails, try 11602 / 11600 or
+# grep the beta Blizzard_UI.toc / any first-party addon toc for the real value.
+
+DPSPulse_Forever.lua

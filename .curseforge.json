@@ -1,0 +1,6 @@
+{
+  "projectId": 0,
+  "gameVersions": ["1.60.1"],
+  "releaseType": "beta",
+  "_comment": "TODO: create WoW Forever CurseForge project and set projectId. gameVersions may need the exact CF slug once a WoW-Forever category exists; for now leaves 1.60.1 as the placeholder."
+}
