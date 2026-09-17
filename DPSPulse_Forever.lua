@@ -97,7 +97,6 @@ DPSPulseForever.state = {
     peakDPS = 0,
     sampleAccumulator = 0,
     renderAccumulator = 0,
-    logTimeOffset = nil,
     -- Full-combat-session tracking (mirrors Details-style total DPS).
     -- `totalDamage` accumulates from fightStart and is never trimmed.
     -- `sessionDPS` is the *current* combat's DPS when in combat, or the
@@ -123,16 +122,6 @@ DPSPulseForever.ui = {
     maxLabel = nil,
     segments = {},
     supportsRotation = true,
-}
-
-local damageEvents = {
-    SWING_DAMAGE = true,
-    SPELL_DAMAGE = true,
-    SPELL_PERIODIC_DAMAGE = true,
-    RANGE_DAMAGE = true,
-    DAMAGE_SHIELD = true,
-    DAMAGE_SPLIT = true,
-    ENVIRONMENTAL_DAMAGE = true,
 }
 
 function DPSPulseForever:GetWindowSeconds()
@@ -167,7 +156,6 @@ function DPSPulseForever:ResetFightData()
     self.state.history = {}
     self.state.peakDPS = 0
     self.state.fightStart = now()
-    self.state.logTimeOffset = nil
     self.state.totalDamage = 0
 end
 
@@ -196,18 +184,8 @@ function DPSPulseForever:EndFight()
     end
 end
 
-function DPSPulseForever:NormalizeEventTime(eventTimestamp)
-    local eventTime = tonumber(eventTimestamp)
-    if not eventTime then
-        return now()
-    end
-
-    if not self.state.logTimeOffset then
-        self.state.logTimeOffset = now() - eventTime
-    end
-
-    return eventTime + self.state.logTimeOffset
-end
+-- (Removed) DPSPulseForever:NormalizeEventTime -- COMBAT_LOG_EVENT_UNFILTERED
+-- provided its own timestamp on TBC; UNIT_COMBAT does not, so we just use now().
 
 function DPSPulseForever:TrackDamage(eventTime, amount)
     if not amount or amount <= 0 then
@@ -707,58 +685,27 @@ function DPSPulseForever:UpdateLockStatus()
     end
 end
 
-function DPSPulseForever:ParseDamageAmount(subEvent, ...)
-    if subEvent == "SWING_DAMAGE" then
-        return tonumber((...))
-    end
-
-    if subEvent == "ENVIRONMENTAL_DAMAGE" then
-        local _, amount = ...
-        return tonumber(amount)
-    end
-
-    if subEvent == "SPELL_DAMAGE" or subEvent == "SPELL_PERIODIC_DAMAGE" or subEvent == "RANGE_DAMAGE" or subEvent == "DAMAGE_SHIELD" or subEvent == "DAMAGE_SPLIT" then
-        local _, _, _, amount = ...
-        return tonumber(amount)
-    end
-
-    return nil
-end
-
-function DPSPulseForever:HandleCombatLogEvent(...)
-    local timestamp
-    local subEvent
-    local sourceGUID
-    local arg12
-    local arg13
-    local arg14
-    local arg15
-
-    if CombatLogGetCurrentEventInfo then
-        timestamp, subEvent, _, sourceGUID, _, _, _, _, _, _, _, arg12, arg13, arg14, arg15 = CombatLogGetCurrentEventInfo()
-    else
-        timestamp, subEvent, _, sourceGUID, _, _, _, _, _, _, _, arg12, arg13, arg14, arg15 = ...
-    end
-
-    if not timestamp or not subEvent or not sourceGUID then
+function DPSPulseForever:HandleUnitCombat(unit, action, flags, amount, damageType)
+    -- WoW Forever: COMBAT_LOG_EVENT_UNFILTERED is ForceTaint_strong (registering
+    -- it hard-taints the addon). UNIT_COMBAT is the taint-free replacement, but
+    -- only fires while the unit is your current target (and its aliases:
+    -- softenemy, nameplate1, targettarget). Filter on "target" to avoid duplicates.
+    -- Caveats: retargeting mid-fight loses events; group-mate damage on the same
+    -- mob may inflate; some DoT/environmental damage not surfaced here.
+    if unit ~= "target" then
         return
     end
 
-    if not damageEvents[subEvent] then
+    if action ~= "WOUND" then
         return
     end
 
-    local isPlayer = sourceGUID == self.state.playerGUID
-    local isPet = self.state.petGUID and sourceGUID == self.state.petGUID
-    if not isPlayer and not isPet then
+    local dmg = tonumber(amount)
+    if not dmg or dmg <= 0 then
         return
     end
 
-    local amount = self:ParseDamageAmount(subEvent, arg12, arg13, arg14, arg15)
-
-    if amount and amount > 0 then
-        self:TrackDamage(self:NormalizeEventTime(timestamp), amount)
-    end
+    self:TrackDamage(now(), dmg)
 end
 
 function DPSPulseForever:HandleSlash(msg)
@@ -821,7 +768,14 @@ function DPSPulseForever:HandleSlash(msg)
         return
     end
 
-    chat("Commands: show, hide, toggle, window <2-60>, scale <0.5-2>, lock, unlock, reset")
+    if command == "debug" then
+        DPSPulseForeverDB.debug = not DPSPulseForeverDB.debug
+        self.state.debugCount = 0
+        chat("Debug " .. (DPSPulseForeverDB.debug and "ON (first 8 UNIT_COMBAT events will dump to chat)" or "off") .. ".")
+        return
+    end
+
+    chat("Commands: show, hide, toggle, window <2-60>, scale <0.5-2>, lock, unlock, reset, debug")
 end
 
 function DPSPulseForever:HandleEvent(event, ...)
@@ -850,6 +804,14 @@ function DPSPulseForever:HandleEvent(event, ...)
         end
 
         chat("Loaded. Type /dpspulseforever help for commands.")
+
+        SLASH_DPSPULSEFOREVER1 = "/dpspulseforever"
+        SLASH_DPSPULSEFOREVER2 = "/dpsf"
+        SlashCmdList.DPSPULSEFOREVER = function(msg)
+            self:HandleSlash(msg)
+        end
+
+        chat("Loaded. Type /dpspulseforever help for commands.")
     elseif event == "PLAYER_REGEN_DISABLED" then
         self:StartFight()
     elseif event == "PLAYER_REGEN_ENABLED" then
@@ -862,8 +824,8 @@ function DPSPulseForever:HandleEvent(event, ...)
     elseif event == "PLAYER_ENTERING_WORLD" then
         self.state.playerGUID = UnitGUID("player")
         self.state.petGUID = UnitGUID("pet")
-    elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
-        self:HandleCombatLogEvent(...)
+    elseif event == "UNIT_COMBAT" then
+        self:HandleUnitCombat(...)
     end
 end
 
@@ -874,7 +836,8 @@ eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 eventFrame:RegisterEvent("UNIT_PET")
-eventFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+-- WoW Forever: COMBAT_LOG_EVENT_UNFILTERED is ForceTaint_strong; use UNIT_COMBAT.
+eventFrame:RegisterEvent("UNIT_COMBAT")
 
 eventFrame:SetScript("OnEvent", function(_, event, ...)
     DPSPulseForever:HandleEvent(event, ...)

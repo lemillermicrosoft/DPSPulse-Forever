@@ -14,16 +14,17 @@ Straight port of DPSPulse `v0.3.0`. Renames applied:
 ## Open TODOs
 
 ### 1. Confirm `## Interface:` number
-Currently guessing `11601` from client build `1.60.1 (69893) beta`. Verify by:
-- Open the WoW Forever install and read any first-party addon's `.toc` (e.g. `Blizzard_TalentUI.toc`).
-- Or launch with the addon enabled; if it shows "Out of Date", flip `Load out of date AddOns` and confirm it works, then update the number.
+**RESOLVED** — Interface number is `16001`, confirmed in-game via `/run print(select(4, GetBuildInfo()))`.
+
+Lesson learned: WoW Forever does NOT use the classic-era `major*10000 + minor*100 + patch` formula. The `1.6` family gets `160xx` numbering.
 
 ### 2. WoW Forever API audit (before shipping)
-Combat log / API surface used by DPSPulse:
-- `CombatLogGetCurrentEventInfo` — TBC+ style, but has a legacy fallback via `select(...)`. WoW Forever is 1.60.x (vanilla-adjacent) — **need to confirm which path fires**.
-- `COMBAT_LOG_EVENT_UNFILTERED` event with subEvent parsing (`SWING_DAMAGE`, `RANGE_DAMAGE`, `SPELL_DAMAGE`, `SPELL_PERIODIC_DAMAGE`, `DAMAGE_SHIELD`, `DAMAGE_SPLIT`).
-- `UnitGUID`, `GetTime`, `GetTimePreciseSec`, `CreateFrame`, standard UI primitives — all expected safe.
-- New restrictions likely in WoW Forever: nothing here uses protected/`SecureActionButtonTemplate` combat-only APIs, so we should be clean, but log a scan.
+**RESOLVED** — audit complete, findings baked into current code.
+
+- **`COMBAT_LOG_EVENT_UNFILTERED` is `ForceTaint_strong` on WoW Forever.** Registering it hard-taints the addon ("blocked from an action only available to the Blizzard UI" appears immediately on load). Switched to `UNIT_COMBAT` — the taint-free per-unit event — filtered on `unit == "target"`, action `WOUND`. See `HandleUnitCombat` in the Lua source.
+- `C_CombatLog.IsCombatLogRestricted()` returns `true` on this client and there's no obvious way to unlock it. `C_CombatLog.{Get,Set}CurrentCombatFilter` (retail's privacy opt-in) do not exist here.
+- All other DPSPulse API usage (`UnitGUID`, `GetTime`, `GetTimePreciseSec`, `CreateFrame`, drag scripts, `SetMovable`, `SetClampedToScreen`) is taint-free on WoW Forever.
+- Retail-style taint rules apply on top of the Classic Era base, but DPSPulse's shell code doesn't trip any of them — the only violation was the combat log event registration.
 
 ### 3. CurseForge project
 Create a WoW Forever CF project once the platform categorizes 1.60.x. Wire `projectId` into `.curseforge.json`. Reuse the existing `cf-upload` pipeline.
@@ -42,3 +43,10 @@ Concretely, that means:
 
 ### 5. Release workflow
 Once #1–#3 are done: cut `v0.1.0` GitHub release, mirror to CurseForge, add a Discord announcement in `deehoc` server.
+
+### 6. Shard-change handling (WoW Forever specific)
+WoW Forever surfaces shard changes to the player via a UI button (unlike prior classic clients). A mid-combat shard change will split the combat log and produce anomalous DPS drops.
+
+- Register `PLAYER_ENTERING_WORLD` and detect transitions (both `isInitialLogin` and `isReloadingUi` false).
+- Also watch for the specific shard-change event once identified (see workspace `memory/2026-09-17.md` research task).
+- On detection during active combat: consider `ClearSession()` + `ResetFightData()` and print a chat note like `"Shard change detected; session reset."` so the user knows why the graph jumped.
