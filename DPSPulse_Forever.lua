@@ -1,7 +1,7 @@
 local ADDON_NAME = ...
 
 local DPSPulseForever = {}
-_G.DPSPulseForever = DPSPulse
+_G.DPSPulseForever = DPSPulseForever
 
 local defaults = {
     point = "CENTER",
