@@ -1,4 +1,4 @@
-## Interface: 11601
+## Interface: 16001
 ## Title: DPSPulse Forever
 ## Notes: Realtime rolling DPS graph for outgoing damage. WoW Forever port.
 ## Author: deehoc
@@ -7,8 +7,8 @@
 ## SavedVariables: DPSPulseForeverDB
 ## X-Curse-Project-ID: 0
 
-# Interface 11601 derived from client build 1.60.1.69893 (WoW Forever = Classic Era
-# family, flavor wow_classic_beta). Matches classic-era pattern (1.15.9 -> 11509).
-# Bump if load fails after the first launch.
+# Interface 16001 confirmed in-game via GetBuildInfo() on WoW Forever client
+# 1.60.1.69893 (flavor wow_classic_beta). WoW Forever uses a 16000-series
+# interface family, NOT the classic-era major*10000+minor*100+patch pattern.
 
 DPSPulse_Forever.lua
