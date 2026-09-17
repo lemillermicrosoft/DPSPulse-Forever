@@ -7,8 +7,8 @@
 ## SavedVariables: DPSPulseForeverDB
 ## X-Curse-Project-ID: 0
 
-# TODO: confirm ## Interface value once WoW Forever beta client is inspected.
-# Guessed 11601 from client version 1.60.1. If load fails, try 11602 / 11600 or
-# grep the beta Blizzard_UI.toc / any first-party addon toc for the real value.
+# Interface 11601 derived from client build 1.60.1.69893 (WoW Forever = Classic Era
+# family, flavor wow_classic_beta). Matches classic-era pattern (1.15.9 -> 11509).
+# Bump if load fails after the first launch.
 
 DPSPulse_Forever.lua
