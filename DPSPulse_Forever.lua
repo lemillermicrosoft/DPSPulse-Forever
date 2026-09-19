@@ -417,7 +417,7 @@ function DPSPulseForever:RenderGraph()
         return
     end
 
-    maxDPS = math.max(50, round(maxDPS * 1.15))
+    maxDPS = math.max(10, round(maxDPS * 1.15))
     if self.ui.maxLabel then
         self.ui.maxLabel:SetText("Max: " .. tostring(round(maxDPS)))
     end
