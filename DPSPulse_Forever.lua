@@ -491,22 +491,19 @@ function DPSPulseForever:SavePosition()
         return
     end
 
-    -- Normalize to CENTER/UIParent/CENTER so restore is anchor-consistent
-    -- regardless of what StartMoving/StopMovingOrSizing left behind.
     local frame = self.ui.frame
-    local scale = frame:GetEffectiveScale()
-    local uiScale = UIParent:GetEffectiveScale()
+    -- Normalize anchor so restore is deterministic. Compute frame center
+    -- offset from UIParent center in UIParent's coord space.
+    local scale = frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
     local cx, cy = frame:GetCenter()
-    if not cx then
+    local pcx, pcy = UIParent:GetCenter()
+    if not cx or not pcx then
         return
     end
-    local pcx, pcy = UIParent:GetCenter()
-    local x = (cx * scale - pcx * uiScale) / uiScale
-    local y = (cy * scale - pcy * uiScale) / uiScale
     DPSPulseForeverDB.point = "CENTER"
     DPSPulseForeverDB.relativePoint = "CENTER"
-    DPSPulseForeverDB.x = round(x)
-    DPSPulseForeverDB.y = round(y)
+    DPSPulseForeverDB.x = round((cx - pcx) * scale)
+    DPSPulseForeverDB.y = round((cy - pcy) * scale)
 end
 
 function DPSPulseForever:SetVisible(visible)
