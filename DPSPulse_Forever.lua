@@ -491,11 +491,22 @@ function DPSPulseForever:SavePosition()
         return
     end
 
-    local point, _, relativePoint, x, y = self.ui.frame:GetPoint(1)
-    DPSPulseForeverDB.point = point
-    DPSPulseForeverDB.relativePoint = relativePoint
-    DPSPulseForeverDB.x = round(x or 0)
-    DPSPulseForeverDB.y = round(y or 0)
+    -- Normalize to CENTER/UIParent/CENTER so restore is anchor-consistent
+    -- regardless of what StartMoving/StopMovingOrSizing left behind.
+    local frame = self.ui.frame
+    local scale = frame:GetEffectiveScale()
+    local uiScale = UIParent:GetEffectiveScale()
+    local cx, cy = frame:GetCenter()
+    if not cx then
+        return
+    end
+    local pcx, pcy = UIParent:GetCenter()
+    local x = (cx * scale - pcx * uiScale) / uiScale
+    local y = (cy * scale - pcy * uiScale) / uiScale
+    DPSPulseForeverDB.point = "CENTER"
+    DPSPulseForeverDB.relativePoint = "CENTER"
+    DPSPulseForeverDB.x = round(x)
+    DPSPulseForeverDB.y = round(y)
 end
 
 function DPSPulseForever:SetVisible(visible)
@@ -824,6 +835,8 @@ function DPSPulseForever:HandleEvent(event, ...)
     elseif event == "PLAYER_ENTERING_WORLD" then
         self.state.playerGUID = UnitGUID("player")
         self.state.petGUID = UnitGUID("pet")
+    elseif event == "PLAYER_LOGOUT" then
+        self:SavePosition()
     elseif event == "UNIT_COMBAT" then
         self:HandleUnitCombat(...)
     end
@@ -836,6 +849,7 @@ eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 eventFrame:RegisterEvent("UNIT_PET")
+eventFrame:RegisterEvent("PLAYER_LOGOUT")
 -- WoW Forever: COMBAT_LOG_EVENT_UNFILTERED is ForceTaint_strong; use UNIT_COMBAT.
 eventFrame:RegisterEvent("UNIT_COMBAT")
 
