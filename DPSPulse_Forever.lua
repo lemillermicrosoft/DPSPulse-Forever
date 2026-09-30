@@ -476,14 +476,13 @@ function DPSPulseForever:ApplyPosition()
         return
     end
 
+    local point = DPSPulseForeverDB.point or defaults.point
+    local relativePoint = DPSPulseForeverDB.relativePoint or defaults.relativePoint
+    local x = DPSPulseForeverDB.x or defaults.x
+    local y = DPSPulseForeverDB.y or defaults.y
     self.ui.frame:ClearAllPoints()
-    self.ui.frame:SetPoint(
-        DPSPulseForeverDB.point or defaults.point,
-        UIParent,
-        DPSPulseForeverDB.relativePoint or defaults.relativePoint,
-        DPSPulseForeverDB.x or defaults.x,
-        DPSPulseForeverDB.y or defaults.y
-    )
+    self.ui.frame:SetPoint(point, UIParent, relativePoint, x, y)
+    self.ui.frame:SetUserPlaced(true)
 end
 
 function DPSPulseForever:SavePosition()
