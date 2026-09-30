@@ -8,7 +8,7 @@ This port is a **straight port** of DPSPulse as-of tag `v0.3.0`. Behavior is ide
 
 ## Status
 - Interface: `16001` (confirmed via in-game `GetBuildInfo()` on build 1.60.1.69893).
-- CurseForge project: **not yet created**.
+- CurseForge project ID: `1719813`; WoW Forever `1.60.1` release uploads are enabled.
 - Cosmetic reskin to match WoW Forever's default UI is planned as follow-up work — see `PLAN.md`.
 
 ## WoW Forever combat log limitation

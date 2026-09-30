@@ -27,7 +27,7 @@ Lesson learned: WoW Forever does NOT use the classic-era `major*10000 + minor*10
 - Retail-style taint rules apply on top of the Classic Era base, but DPSPulse's shell code doesn't trip any of them — the only violation was the combat log event registration.
 
 ### 3. CurseForge project
-Create a WoW Forever CF project once the platform categorizes 1.60.x. Wire `projectId` into `.curseforge.json`. Reuse the existing `cf-upload` pipeline.
+**RESOLVED** — CurseForge project `1719813` is configured. WoW Forever `1.60.1` resolves to game-version ID `17053`, and the initial v0.1.0 file was uploaded as file `9021565`.
 
 ### 4. Native-skin follow-up (deehoc requested)
 > "Investigate creating a skin for DPSPulse that does a better job matching the game skins and default controls."
@@ -42,7 +42,7 @@ Concretely, that means:
 - Keep the graph render logic untouched — this is a **shell** change, not a behavior change.
 
 ### 5. Release workflow
-Once #1–#3 are done: cut `v0.1.0` GitHub release, mirror to CurseForge, add a Discord announcement in `deehoc` server.
+**RESOLVED** — `v0.1.0` was published to GitHub and mirrored to CurseForge on 2026-09-30. A Discord announcement remains optional.
 
 ### 6. Shard-change handling (WoW Forever specific)
 WoW Forever surfaces shard changes to the player via a UI button (unlike prior classic clients). A mid-combat shard change will split the combat log and produce anomalous DPS drops.
