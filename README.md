@@ -4,12 +4,12 @@ WoW Forever (beta, client `1.60.1`) port of [DPSPulse](https://github.com/lemill
 
 DPSPulse Forever shows a realtime rolling DPS graph and current DPS value during combat, with a Details-style dual-series overlay (rolling window + full-session).
 
-This port is a **straight port** of DPSPulse as-of tag `v0.3.0`. Behavior is identical; only addon identity was renamed (folder, SavedVariables, slash commands, frame name) so it can coexist with the original.
+This port began as a straight port of DPSPulse tag `v0.3.0`. The graph and damage-tracking behavior remain unchanged, while the WoW Forever edition now adds native in-game options and a choice of window skins.
 
 ## Status
 - Interface: `16001` (confirmed via in-game `GetBuildInfo()` on build 1.60.1.69893).
 - CurseForge project ID: `1719813`; WoW Forever `1.60.1` release uploads are enabled.
-- Cosmetic reskin to match WoW Forever's default UI is planned as follow-up work — see `PLAN.md`.
+- Version `0.2.0` adds an Esc > Options > AddOns panel and a live, persistent Blizzard/native skin.
 
 ## WoW Forever combat log limitation
 
@@ -22,9 +22,14 @@ WoW Forever hard-taints (`ForceTaint_strong`) any addon that registers `COMBAT_L
 
 This is intentional — WoW Forever's design philosophy on combat log privacy is respected. See `PLAN.md` for the upstream API investigation notes.
 
-## Commands
+## Options and commands
+All display settings are available under **Esc > Options > AddOns > DPSPulse Forever** (with a legacy Interface Options registration fallback). The panel controls visibility, position lock, rolling window (2–60 seconds), UI scale (0.5–2), debug mode, Classic/Blizzard skin, session reset, and window-position reset. Changes apply immediately and persist in `DPSPulseForeverDB` where applicable.
+
+Slash commands remain available:
 - `/dpspulseforever` (alias `/dpsf`) — toggle frame.
-- `/dpsf help` — show all commands (same set as upstream DPSPulse: `show`, `hide`, `window <s>`, `reset`, `lock`, `unlock`, `scale <v>`).
+- `/dpsf show`, `hide`, `lock`, `unlock`, `reset`, or `debug`.
+- `/dpsf window <2-60>` and `/dpsf scale <0.5-2>`.
+- `/dpsf skin <classic|blizzard>` and `/dpsf resetposition`.
 
 ## Install
 Copy the folder into `<WoW Forever>/Interface/AddOns/DPSPulse_Forever/` such that these files live directly in it:
@@ -33,4 +38,4 @@ Copy the folder into `<WoW Forever>/Interface/AddOns/DPSPulse_Forever/` such tha
 - `Media/`
 
 ## Upstream
-Bugfixes and features flow from [DPSPulse](https://github.com/lemillermicrosoft/DPSPulse) upstream. This repo only carries the WoW Forever delta (interface number, cosmetic skin work, WoW Forever–specific compat).
+Bugfixes and features flow from [DPSPulse](https://github.com/lemillermicrosoft/DPSPulse) upstream. This repo only carries the WoW Forever delta (interface number, options/native skin work, WoW Forever–specific compat).

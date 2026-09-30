@@ -2,10 +2,10 @@
 ## Title: DPSPulse Forever
 ## Notes: Realtime rolling DPS graph for outgoing damage. WoW Forever port.
 ## Author: deehoc
-## Version: 0.1.0
+## Version: 0.2.0
 ## IconTexture: Interface\AddOns\DPSPulse_Forever\Media\icon
 ## SavedVariables: DPSPulseForeverDB
-## X-Curse-Project-ID: 0
+## X-Curse-Project-ID: 1719813
 
 # Interface 16001 confirmed in-game via GetBuildInfo() on WoW Forever client
 # 1.60.1.69893 (flavor wow_classic_beta). WoW Forever uses a 16000-series

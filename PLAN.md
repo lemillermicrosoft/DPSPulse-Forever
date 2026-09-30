@@ -1,7 +1,7 @@
 # DPSPulse Forever — Plan / TODO
 
-## Port status (v0.1.0)
-Straight port of DPSPulse `v0.3.0`. Renames applied:
+## Port status (v0.2.0)
+Originally ported from DPSPulse `v0.3.0`. Renames applied:
 - Folder: `DPSPulse` → `DPSPulse_Forever`
 - .toc/.lua filenames: `DPSPulse_Forever.{toc,lua}`
 - Lua global table: `DPSPulse` → `DPSPulseForever`
@@ -29,17 +29,10 @@ Lesson learned: WoW Forever does NOT use the classic-era `major*10000 + minor*10
 ### 3. CurseForge project
 **RESOLVED** — CurseForge project `1719813` is configured. WoW Forever `1.60.1` resolves to game-version ID `17053`, and the initial v0.1.0 file was uploaded as file `9021565`.
 
-### 4. Native-skin follow-up (deehoc requested)
-> "Investigate creating a skin for DPSPulse that does a better job matching the game skins and default controls."
+### 4. Native skin and in-game options
+**RESOLVED in v0.2.0** — the window now offers a persistent `Classic` or `Blizzard / native` skin. The native variant uses Blizzard-shipped dialog artwork and `UIPanelCloseButton`; graph rendering is unchanged.
 
-Concretely, that means:
-- Replace the ad-hoc dark backdrop with an **`InsetFrameTemplate`** / **`BasicFrameTemplateWithInset`** style backdrop so it feels like a native Blizzard panel.
-- Give it a proper title bar with a Blizzard-style close button (`UIPanelCloseButton`).
-- Support **default UI drag behavior**: hold Shift to move (matching how the bag, minimap, quest tracker feel), or provide a proper `/dpsf lock` toggle wired to an options panel checkbox.
-- Add a minimal **Interface Options panel** entry (`InterfaceOptions_AddCategory`, or the newer `Settings.RegisterAddOnCategory` if WoW Forever includes the retail Settings API).
-- Consider `Minimap` LDB launcher via LibDBIcon so it looks like every other well-behaved addon.
-- Explore theming via LibSharedMedia and matching the WoW Forever default fonts (whatever they replace `FRIZQT__.TTF` with, if anything).
-- Keep the graph render logic untouched — this is a **shell** change, not a behavior change.
+A custom canvas panel is registered under Esc > Options > AddOns through `Settings.RegisterCanvasLayoutCategory` / `Settings.RegisterAddOnCategory` when available, with `InterfaceOptions_AddCategory` as the legacy fallback. It includes every slash-configurable preference plus visibility, lock, rolling window, scale, skin, session reset, and position reset. Controls apply live and refresh from saved state. No external libraries or protected APIs are used.
 
 ### 5. Release workflow
 **RESOLVED** — `v0.1.0` was published to GitHub and mirrored to CurseForge on 2026-09-30. A Discord announcement remains optional.

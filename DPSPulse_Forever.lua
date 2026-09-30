@@ -12,6 +12,8 @@ local defaults = {
     windowSeconds = 10,
     locked = false,
     visible = true,
+    skin = "classic",
+    debug = false,
 }
 
 local function now()
@@ -122,6 +124,9 @@ DPSPulseForever.ui = {
     maxLabel = nil,
     segments = {},
     supportsRotation = true,
+    optionsPanel = nil,
+    optionsControls = {},
+    refreshingOptions = false,
 }
 
 function DPSPulseForever:GetWindowSeconds()
@@ -149,6 +154,8 @@ function DPSPulseForever:EnsureDB()
     DPSPulseForeverDB.scale = clamp(tonumber(DPSPulseForeverDB.scale) or defaults.scale, 0.5, 2)
     DPSPulseForeverDB.visible = DPSPulseForeverDB.visible ~= false
     DPSPulseForeverDB.locked = DPSPulseForeverDB.locked == true
+    DPSPulseForeverDB.skin = DPSPulseForeverDB.skin == "blizzard" and "blizzard" or "classic"
+    DPSPulseForeverDB.debug = DPSPulseForeverDB.debug == true
 end
 
 function DPSPulseForever:ResetFightData()
@@ -514,6 +521,121 @@ function DPSPulseForever:SetVisible(visible)
             self.ui.frame:Hide()
         end
     end
+    self:RefreshOptions()
+end
+
+function DPSPulseForever:SetLocked(locked)
+    DPSPulseForeverDB.locked = locked == true
+    self:UpdateLockStatus()
+    self:RefreshOptions()
+end
+
+function DPSPulseForever:SetWindowSeconds(seconds)
+    DPSPulseForeverDB.windowSeconds = clamp(tonumber(seconds) or defaults.windowSeconds, 2, 60)
+    self:RefreshOptions()
+end
+
+function DPSPulseForever:SetScale(scale)
+    DPSPulseForeverDB.scale = clamp(tonumber(scale) or defaults.scale, 0.5, 2)
+    if self.ui.frame then
+        self.ui.frame:SetScale(DPSPulseForeverDB.scale)
+    end
+    self:RefreshOptions()
+end
+
+function DPSPulseForever:ResetSessionData()
+    self:ResetFightData()
+    self:ClearSession()
+    self:UpdateTexts()
+    self:RenderGraph()
+end
+
+function DPSPulseForever:ResetWindowPosition()
+    DPSPulseForeverDB.point = defaults.point
+    DPSPulseForeverDB.relativePoint = defaults.relativePoint
+    DPSPulseForeverDB.x = defaults.x
+    DPSPulseForeverDB.y = defaults.y
+    self:ApplyPosition()
+end
+
+function DPSPulseForever:ApplySkin(skin)
+    skin = skin == "blizzard" and "blizzard" or "classic"
+    DPSPulseForeverDB.skin = skin
+
+    local frame = self.ui.frame
+    if not frame or not frame.skinTextures then
+        return
+    end
+
+    local textures = frame.skinTextures
+    if skin == "blizzard" then
+        -- UI-DialogBox-Border is an atlas of border pieces, not a single
+        -- stretchable image. Use Blizzard's backdrop renderer so its corners
+        -- and edges are sliced correctly at any frame size.
+        frame:SetBackdrop({
+            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+            tile = true,
+            tileSize = 32,
+            edgeSize = 32,
+            insets = { left = 11, right = 12, top = 12, bottom = 11 },
+        })
+        -- WoW Forever's native panels use warm bronze edging and dark umber
+        -- surfaces rather than the stock silver dialog palette.
+        frame:SetBackdropColor(0.30, 0.20, 0.11, 1)
+        frame:SetBackdropBorderColor(0.72, 0.47, 0.20, 1)
+        textures.background:Hide()
+        textures.header:ClearAllPoints()
+        textures.header:SetPoint("TOPLEFT", frame, "TOPLEFT", 5, -4)
+        textures.header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -5, -4)
+        textures.header:SetHeight(23)
+        textures.header:SetTexture(nil)
+        textures.header:SetColorTexture(0.13, 0.055, 0.012, 0.98)
+        textures.header:Show()
+        textures.headerHighlight:SetColorTexture(0.88, 0.62, 0.28, 0.52)
+        textures.headerHighlight:Show()
+        textures.headerAccent:SetColorTexture(0.72, 0.47, 0.16, 0.95)
+        textures.headerAccent:Show()
+        textures.headerShadow:Show()
+        textures.graphBackground:SetColorTexture(0.055, 0.032, 0.018, 0.94)
+        textures.graphWatermark:Show()
+        for _, line in ipairs(textures.graphGrid) do line:Show() end
+        frame.title:ClearAllPoints()
+        frame.title:SetPoint("TOP", frame, "TOP", 0, -9)
+        frame.title:SetTextColor(1.0, 0.82, 0.20, 1)
+        frame.lockStatus:ClearAllPoints()
+        frame.lockStatus:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -30, -9)
+        frame.closeButton:Show()
+    else
+        frame:SetBackdrop(nil)
+        textures.background:Show()
+        textures.background:SetTexture(nil)
+        textures.background:SetColorTexture(0, 0, 0, 0.55)
+        textures.header:ClearAllPoints()
+        textures.header:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+        textures.header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
+        textures.header:SetHeight(24)
+        textures.header:Show()
+        textures.header:SetTexture(nil)
+        textures.header:SetColorTexture(0.08, 0.08, 0.08, 0.8)
+        textures.headerHighlight:Hide()
+        textures.headerAccent:Hide()
+        textures.headerShadow:Hide()
+        textures.graphBackground:SetColorTexture(0.02, 0.02, 0.02, 0.75)
+        textures.graphWatermark:Hide()
+        for _, line in ipairs(textures.graphGrid) do line:Hide() end
+        frame.title:ClearAllPoints()
+        frame.title:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -6)
+        frame.title:SetTextColor(1, 1, 1, 1)
+        frame.lockStatus:ClearAllPoints()
+        frame.lockStatus:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -8)
+        frame.closeButton:Hide()
+    end
+    self:RefreshOptions()
+end
+
+function DPSPulseForever:SetSkin(skin)
+    self:ApplySkin(skin)
 end
 
 function DPSPulseForever:CreateUI()
@@ -521,7 +643,8 @@ function DPSPulseForever:CreateUI()
         return
     end
 
-    local frame = CreateFrame("Frame", "DPSPulseForeverFrame", UIParent)
+    local frameTemplate = BackdropTemplateMixin and "BackdropTemplate" or nil
+    local frame = CreateFrame("Frame", "DPSPulseForeverFrame", UIParent, frameTemplate)
     frame:SetSize(320, 170)
     frame:SetMovable(true)
     frame:SetClampedToScreen(true)
@@ -570,9 +693,39 @@ function DPSPulseForever:CreateUI()
     header:SetHeight(24)
     header:SetColorTexture(0.08, 0.08, 0.08, 0.8)
 
+    local headerHighlight = frame:CreateTexture(nil, "OVERLAY")
+    headerHighlight:SetPoint("TOPLEFT", header, "TOPLEFT", 3, -2)
+    headerHighlight:SetPoint("TOPRIGHT", header, "TOPRIGHT", -3, -2)
+    headerHighlight:SetHeight(1)
+    headerHighlight:Hide()
+
+    local headerAccent = frame:CreateTexture(nil, "OVERLAY")
+    headerAccent:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 3, 1)
+    headerAccent:SetPoint("TOPRIGHT", header, "BOTTOMRIGHT", -3, 1)
+    headerAccent:SetHeight(1)
+    headerAccent:Hide()
+
+    local headerShadow = frame:CreateTexture(nil, "ARTWORK")
+    headerShadow:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -1)
+    headerShadow:SetPoint("TOPRIGHT", header, "BOTTOMRIGHT", 0, -1)
+    headerShadow:SetHeight(3)
+    headerShadow:SetColorTexture(0, 0, 0, 0.72)
+    headerShadow:Hide()
+
+    -- The optional native skin uses only Blizzard-shipped dialog artwork.
+    -- It is decorative and does not alter graph rendering or combat data.
+    local closeButton = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+    closeButton:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 2, 2)
+    closeButton:SetScript("OnClick", function()
+        DPSPulseForever:SetVisible(false)
+    end)
+    closeButton:Hide()
+    frame.closeButton = closeButton
+
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     title:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -6)
     title:SetText("DPSPulse Forever")
+    frame.title = title
 
     local lockStatus = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     lockStatus:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -8)
@@ -600,9 +753,50 @@ function DPSPulseForever:CreateUI()
     graph:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -70)
     graph:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, 10)
 
-    local graphBg = graph:CreateTexture(nil, "BACKGROUND")
+    local graphBg = graph:CreateTexture(nil, "BACKGROUND", nil, 0)
     graphBg:SetAllPoints(graph)
     graphBg:SetColorTexture(0.02, 0.02, 0.02, 0.75)
+
+    -- Native-skin depth: a very faint addon emblem and low-contrast chart grid.
+    -- Both stay behind every label and data series, so readability is preserved.
+    local graphWatermark = graph:CreateTexture(nil, "BACKGROUND", nil, 1)
+    graphWatermark:SetTexture("Interface\\AddOns\\DPSPulse_Forever\\Media\\icon")
+    graphWatermark:SetSize(88, 88)
+    graphWatermark:SetPoint("CENTER", graph, "CENTER", 0, -5)
+    graphWatermark:SetAlpha(0.035)
+    if graphWatermark.SetDesaturated then graphWatermark:SetDesaturated(true) end
+    graphWatermark:Hide()
+
+    local graphGrid = {}
+    for i = 1, 5 do
+        local line = graph:CreateTexture(nil, "BACKGROUND", nil, 2)
+        line:SetColorTexture(0.78, 0.52, 0.22, 0.10)
+        line:SetWidth(1)
+        line:SetPoint("TOP", graph, "TOPLEFT", (i / 6) * 300, 0)
+        line:SetPoint("BOTTOM", graph, "BOTTOMLEFT", (i / 6) * 300, 0)
+        line:Hide()
+        graphGrid[#graphGrid + 1] = line
+    end
+    for i = 1, 3 do
+        local line = graph:CreateTexture(nil, "BACKGROUND", nil, 2)
+        line:SetColorTexture(0.78, 0.52, 0.22, 0.10)
+        line:SetHeight(1)
+        line:SetPoint("LEFT", graph, "BOTTOMLEFT", 0, (i / 4) * 90)
+        line:SetPoint("RIGHT", graph, "BOTTOMRIGHT", 0, (i / 4) * 90)
+        line:Hide()
+        graphGrid[#graphGrid + 1] = line
+    end
+
+    frame.skinTextures = {
+        background = bg,
+        header = header,
+        headerHighlight = headerHighlight,
+        headerAccent = headerAccent,
+        headerShadow = headerShadow,
+        graphBackground = graphBg,
+        graphWatermark = graphWatermark,
+        graphGrid = graphGrid,
+    }
 
     local axisX = graph:CreateTexture(nil, "ARTWORK")
     axisX:SetColorTexture(0.5, 0.5, 0.5, 0.35)
@@ -678,6 +872,7 @@ function DPSPulseForever:CreateUI()
     self:ApplyPosition()
     self:SetVisible(DPSPulseForeverDB.visible)
     self:UpdateLockStatus()
+    self:ApplySkin(DPSPulseForeverDB.skin)
 end
 
 function DPSPulseForever:UpdateLockStatus()
@@ -690,6 +885,186 @@ function DPSPulseForever:UpdateLockStatus()
     else
         self.ui.frame.lockStatus:SetText("Unlocked")
     end
+end
+
+function DPSPulseForever:RefreshOptions()
+    local controls = self.ui.optionsControls
+    if not controls or not controls.visible then
+        return
+    end
+
+    self.ui.refreshingOptions = true
+    controls.visible:SetChecked(DPSPulseForeverDB.visible)
+    controls.locked:SetChecked(DPSPulseForeverDB.locked)
+    controls.debug:SetChecked(DPSPulseForeverDB.debug)
+    controls.classicSkin:SetChecked(DPSPulseForeverDB.skin == "classic")
+    controls.blizzardSkin:SetChecked(DPSPulseForeverDB.skin == "blizzard")
+    controls.window:SetValue(self:GetWindowSeconds())
+    controls.scale:SetValue(DPSPulseForeverDB.scale)
+    controls.windowValue:SetText(string.format("%ds", round(self:GetWindowSeconds())))
+    controls.scaleValue:SetText(string.format("%.2f", DPSPulseForeverDB.scale))
+    self.ui.refreshingOptions = false
+end
+
+local function setCheckButtonText(checkButton, text)
+    local label = checkButton.Text or (checkButton:GetName() and _G[checkButton:GetName() .. "Text"])
+    if label then
+        label:SetText(text)
+    end
+end
+
+function DPSPulseForever:CreateOptionsPanel()
+    if self.ui.optionsPanel then
+        return
+    end
+
+    local panel = CreateFrame("Frame", "DPSPulseForeverOptionsPanel", UIParent)
+    panel.name = "DPSPulse Forever"
+    self.ui.optionsPanel = panel
+
+    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", 16, -16)
+    title:SetText("DPSPulse Forever")
+
+    local subtitle = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
+    subtitle:SetText("Display, graph window, and appearance")
+
+    local controls = self.ui.optionsControls
+    local visible = CreateFrame("CheckButton", "DPSPulseForeverOptionsVisible", panel, "UICheckButtonTemplate")
+    visible:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", -4, -14)
+    setCheckButtonText(visible, "Show DPS window")
+    visible:SetScript("OnClick", function(button)
+        if not DPSPulseForever.ui.refreshingOptions then
+            DPSPulseForever:SetVisible(button:GetChecked() == true)
+        end
+    end)
+    controls.visible = visible
+
+    local locked = CreateFrame("CheckButton", "DPSPulseForeverOptionsLocked", panel, "UICheckButtonTemplate")
+    locked:SetPoint("TOPLEFT", visible, "BOTTOMLEFT", 0, -4)
+    setCheckButtonText(locked, "Lock window position")
+    locked:SetScript("OnClick", function(button)
+        if not DPSPulseForever.ui.refreshingOptions then
+            DPSPulseForever:SetLocked(button:GetChecked() == true)
+        end
+    end)
+    controls.locked = locked
+
+    local debug = CreateFrame("CheckButton", "DPSPulseForeverOptionsDebug", panel, "UICheckButtonTemplate")
+    debug:SetPoint("TOPLEFT", locked, "BOTTOMLEFT", 0, -4)
+    setCheckButtonText(debug, "Debug UNIT_COMBAT events")
+    debug:SetScript("OnClick", function(button)
+        if not DPSPulseForever.ui.refreshingOptions then
+            DPSPulseForeverDB.debug = button:GetChecked() == true
+            DPSPulseForever.state.debugCount = 0
+        end
+    end)
+    controls.debug = debug
+
+    local windowLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    windowLabel:SetPoint("TOPLEFT", debug, "BOTTOMLEFT", 4, -20)
+    windowLabel:SetText("Rolling window")
+    local windowValue = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    windowValue:SetPoint("LEFT", windowLabel, "RIGHT", 12, 0)
+    controls.windowValue = windowValue
+
+    local windowSlider = CreateFrame("Slider", "DPSPulseForeverOptionsWindow", panel, "OptionsSliderTemplate")
+    windowSlider:SetPoint("TOPLEFT", windowLabel, "BOTTOMLEFT", 4, -12)
+    windowSlider:SetWidth(260)
+    windowSlider:SetMinMaxValues(2, 60)
+    windowSlider:SetValueStep(1)
+    if windowSlider.SetObeyStepOnDrag then windowSlider:SetObeyStepOnDrag(true) end
+    _G[windowSlider:GetName() .. "Low"]:SetText("2s")
+    _G[windowSlider:GetName() .. "High"]:SetText("60s")
+    _G[windowSlider:GetName() .. "Text"]:SetText("")
+    windowSlider:SetScript("OnValueChanged", function(_, value)
+        value = round(value)
+        windowValue:SetText(string.format("%ds", value))
+        if not DPSPulseForever.ui.refreshingOptions then
+            DPSPulseForever:SetWindowSeconds(value)
+        end
+    end)
+    controls.window = windowSlider
+
+    local scaleLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    scaleLabel:SetPoint("TOPLEFT", windowSlider, "BOTTOMLEFT", -4, -28)
+    scaleLabel:SetText("UI scale")
+    local scaleValue = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    scaleValue:SetPoint("LEFT", scaleLabel, "RIGHT", 12, 0)
+    controls.scaleValue = scaleValue
+
+    local scaleSlider = CreateFrame("Slider", "DPSPulseForeverOptionsScale", panel, "OptionsSliderTemplate")
+    scaleSlider:SetPoint("TOPLEFT", scaleLabel, "BOTTOMLEFT", 4, -12)
+    scaleSlider:SetWidth(260)
+    scaleSlider:SetMinMaxValues(0.5, 2)
+    scaleSlider:SetValueStep(0.05)
+    if scaleSlider.SetObeyStepOnDrag then scaleSlider:SetObeyStepOnDrag(true) end
+    _G[scaleSlider:GetName() .. "Low"]:SetText("0.5")
+    _G[scaleSlider:GetName() .. "High"]:SetText("2.0")
+    _G[scaleSlider:GetName() .. "Text"]:SetText("")
+    scaleSlider:SetScript("OnValueChanged", function(_, value)
+        value = math.floor(value * 20 + 0.5) / 20
+        scaleValue:SetText(string.format("%.2f", value))
+        if not DPSPulseForever.ui.refreshingOptions then
+            DPSPulseForever:SetScale(value)
+        end
+    end)
+    controls.scale = scaleSlider
+
+    local skinLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    skinLabel:SetPoint("TOPLEFT", scaleSlider, "BOTTOMLEFT", -4, -28)
+    skinLabel:SetText("Window skin")
+
+    local classicSkin = CreateFrame("CheckButton", "DPSPulseForeverOptionsClassicSkin", panel, "UIRadioButtonTemplate")
+    classicSkin:SetPoint("TOPLEFT", skinLabel, "BOTTOMLEFT", -4, -8)
+    setCheckButtonText(classicSkin, "Original / minimal")
+    classicSkin:SetScript("OnClick", function()
+        if not DPSPulseForever.ui.refreshingOptions then DPSPulseForever:SetSkin("classic") end
+    end)
+    controls.classicSkin = classicSkin
+
+    local blizzardSkin = CreateFrame("CheckButton", "DPSPulseForeverOptionsBlizzardSkin", panel, "UIRadioButtonTemplate")
+    blizzardSkin:SetPoint("LEFT", classicSkin, "RIGHT", 90, 0)
+    setCheckButtonText(blizzardSkin, "Blizzard / native")
+    blizzardSkin:SetScript("OnClick", function()
+        if not DPSPulseForever.ui.refreshingOptions then DPSPulseForever:SetSkin("blizzard") end
+    end)
+    controls.blizzardSkin = blizzardSkin
+
+    local resetData = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    resetData:SetSize(160, 24)
+    resetData:SetPoint("TOPLEFT", classicSkin, "BOTTOMLEFT", 4, -24)
+    resetData:SetText("Reset session data")
+    resetData:SetScript("OnClick", function()
+        DPSPulseForever:ResetSessionData()
+        chat("Current fight data reset.")
+    end)
+
+    local resetPosition = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    resetPosition:SetSize(170, 24)
+    resetPosition:SetPoint("LEFT", resetData, "RIGHT", 10, 0)
+    resetPosition:SetText("Reset window position")
+    resetPosition:SetScript("OnClick", function()
+        DPSPulseForever:ResetWindowPosition()
+        chat("Window position reset.")
+    end)
+
+    panel:SetScript("OnShow", function() DPSPulseForever:RefreshOptions() end)
+
+    local registered = false
+    if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
+        local ok, category = pcall(Settings.RegisterCanvasLayoutCategory, panel, panel.name)
+        if ok and category then
+            panel.category = category
+            registered = pcall(Settings.RegisterAddOnCategory, category)
+        end
+    end
+    if not registered and InterfaceOptions_AddCategory then
+        InterfaceOptions_AddCategory(panel)
+    end
+
+    self:RefreshOptions()
 end
 
 function DPSPulseForever:HandleUnitCombat(unit, action, flags, amount, damageType)
@@ -734,24 +1109,25 @@ function DPSPulseForever:HandleSlash(msg)
     end
 
     if command == "reset" then
-        self:ResetFightData()
-        self:ClearSession()
-        self:UpdateTexts()
-        self:RenderGraph()
+        self:ResetSessionData()
         chat("Current fight data reset.")
         return
     end
 
+    if command == "resetposition" then
+        self:ResetWindowPosition()
+        chat("Window position reset.")
+        return
+    end
+
     if command == "lock" then
-        DPSPulseForeverDB.locked = true
-        self:UpdateLockStatus()
+        self:SetLocked(true)
         chat("Frame locked.")
         return
     end
 
     if command == "unlock" then
-        DPSPulseForeverDB.locked = false
-        self:UpdateLockStatus()
+        self:SetLocked(false)
         chat("Frame unlocked.")
         return
     end
@@ -759,7 +1135,7 @@ function DPSPulseForever:HandleSlash(msg)
     local windowValue = command:match("^window%s+([%d%.]+)$")
     if windowValue then
         local seconds = clamp(tonumber(windowValue) or defaults.windowSeconds, 2, 60)
-        DPSPulseForeverDB.windowSeconds = seconds
+        self:SetWindowSeconds(seconds)
         chat("Rolling window set to " .. tostring(seconds) .. "s.")
         return
     end
@@ -767,22 +1143,27 @@ function DPSPulseForever:HandleSlash(msg)
     local scaleValue = command:match("^scale%s+([%d%.]+)$")
     if scaleValue then
         local scale = clamp(tonumber(scaleValue) or 1, 0.5, 2)
-        DPSPulseForeverDB.scale = scale
-        if self.ui.frame then
-            self.ui.frame:SetScale(scale)
-        end
+        self:SetScale(scale)
         chat("Scale set to " .. tostring(scale) .. ".")
+        return
+    end
+
+    local skinValue = command:match("^skin%s+(%a+)$")
+    if skinValue == "classic" or skinValue == "blizzard" then
+        self:SetSkin(skinValue)
+        chat("Skin set to " .. skinValue .. ".")
         return
     end
 
     if command == "debug" then
         DPSPulseForeverDB.debug = not DPSPulseForeverDB.debug
         self.state.debugCount = 0
+        self:RefreshOptions()
         chat("Debug " .. (DPSPulseForeverDB.debug and "ON (first 8 UNIT_COMBAT events will dump to chat)" or "off") .. ".")
         return
     end
 
-    chat("Commands: show, hide, toggle, window <2-60>, scale <0.5-2>, lock, unlock, reset, debug")
+    chat("Commands: show, hide, toggle, window <2-60>, scale <0.5-2>, lock, unlock, reset, resetposition, skin <classic|blizzard>, debug")
 end
 
 function DPSPulseForever:HandleEvent(event, ...)
@@ -802,15 +1183,8 @@ function DPSPulseForever:HandleEvent(event, ...)
         self.state.petGUID = UnitGUID("pet")
 
         self:CreateUI()
+        self:CreateOptionsPanel()
         self:ResetFightData()
-
-        SLASH_DPSPULSEFOREVER1 = "/dpspulseforever"
-        SLASH_DPSPULSEFOREVER2 = "/dpsf"
-        SlashCmdList.DPSPULSEFOREVER = function(msg)
-            self:HandleSlash(msg)
-        end
-
-        chat("Loaded. Type /dpspulseforever help for commands.")
 
         SLASH_DPSPULSEFOREVER1 = "/dpspulseforever"
         SLASH_DPSPULSEFOREVER2 = "/dpsf"
