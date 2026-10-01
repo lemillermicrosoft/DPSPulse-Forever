@@ -4,7 +4,7 @@ WoW Forever (beta, client `1.60.1`) port of [DPSPulse](https://github.com/lemill
 
 DPSPulse Forever shows a realtime rolling DPS graph and current DPS value during combat, with a Details-style dual-series overlay (rolling window + full-session).
 
-This port began as a straight port of DPSPulse tag `v0.3.0`. The graph and damage-tracking behavior remain unchanged, while the WoW Forever edition now adds native in-game options and a choice of window skins.
+This port began as a straight port of DPSPulse tag `v0.3.0`. The graph and damage-tracking behavior remain unchanged, while the WoW Forever edition now adds native in-game options, a choice of window skins, and a compact collapse mode.
 
 ## Status
 - Interface: `16001` (confirmed via in-game `GetBuildInfo()` on build 1.60.1.69893).
@@ -23,11 +23,14 @@ WoW Forever hard-taints (`ForceTaint_strong`) any addon that registers `COMBAT_L
 This is intentional — WoW Forever's design philosophy on combat log privacy is respected. See `PLAN.md` for the upstream API investigation notes.
 
 ## Options and commands
-All display settings are available under **Esc > Options > AddOns > DPSPulse Forever** (with a legacy Interface Options registration fallback). The panel controls visibility, position lock, rolling window (2–60 seconds), UI scale (0.5–2), debug mode, Classic/Blizzard skin, session reset, and window-position reset. Changes apply immediately and persist in `DPSPulseForeverDB` where applicable.
+All display settings are available under **Esc > Options > AddOns > DPSPulse Forever** (with a legacy Interface Options registration fallback). The panel controls visibility, position lock, automatic collapse after combat, rolling window (2–60 seconds), UI scale (0.5–2), debug mode, Classic/Blizzard skin, session reset, and window-position reset. Changes apply immediately and persist in `DPSPulseForeverDB` where applicable.
+
+Use the **−** button in the window header to collapse the display to a 28×28 **+** button. Click **+** to expand it again. The compact button keeps the same saved position and can still be dragged while unlocked. With auto-collapse enabled, the full display opens when combat starts and collapses when combat ends.
 
 Slash commands remain available:
 - `/dpspulseforever` (alias `/dpsf`) — toggle frame.
 - `/dpsf show`, `hide`, `lock`, `unlock`, `reset`, or `debug`.
+- `/dpsf collapse`, `/dpsf expand`, `/dpsf autocollapse <on|off>`, and `/dpsf status`.
 - `/dpsf window <2-60>` and `/dpsf scale <0.5-2>`.
 - `/dpsf skin <classic|blizzard>` and `/dpsf resetposition`.
 
