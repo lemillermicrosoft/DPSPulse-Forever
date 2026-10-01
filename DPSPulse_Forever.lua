@@ -12,6 +12,8 @@ local defaults = {
     windowSeconds = 10,
     locked = false,
     visible = true,
+    collapsed = false,
+    autoCollapse = false,
     skin = "classic",
     debug = false,
 }
@@ -129,6 +131,10 @@ DPSPulseForever.ui = {
     refreshingOptions = false,
 }
 
+local FULL_WIDTH = 320
+local FULL_HEIGHT = 170
+local COLLAPSED_SIZE = 28
+
 function DPSPulseForever:GetWindowSeconds()
     return clamp(tonumber(DPSPulseForeverDB.windowSeconds) or defaults.windowSeconds, 2, 60)
 end
@@ -154,6 +160,8 @@ function DPSPulseForever:EnsureDB()
     DPSPulseForeverDB.scale = clamp(tonumber(DPSPulseForeverDB.scale) or defaults.scale, 0.5, 2)
     DPSPulseForeverDB.visible = DPSPulseForeverDB.visible ~= false
     DPSPulseForeverDB.locked = DPSPulseForeverDB.locked == true
+    DPSPulseForeverDB.collapsed = DPSPulseForeverDB.collapsed == true
+    DPSPulseForeverDB.autoCollapse = DPSPulseForeverDB.autoCollapse == true
     DPSPulseForeverDB.skin = DPSPulseForeverDB.skin == "blizzard" and "blizzard" or "classic"
     DPSPulseForeverDB.debug = DPSPulseForeverDB.debug == true
 end
@@ -176,11 +184,17 @@ function DPSPulseForever:StartFight()
     self.state.inCombat = true
     self.state.clearAt = nil
     self:ResetFightData()
+    if DPSPulseForeverDB.autoCollapse then
+        self:SetCollapsed(false)
+    end
 end
 
 function DPSPulseForever:EndFight()
     self.state.inCombat = false
     self.state.clearAt = now() + self.config.clearDelay
+    if DPSPulseForeverDB.autoCollapse then
+        self:SetCollapsed(true)
+    end
     -- Freeze the just-finished combat's total DPS so it stays on screen
     -- until the next fight starts (Details-style "last fight" behavior).
     local duration = now() - (self.state.fightStart or now())
@@ -524,6 +538,58 @@ function DPSPulseForever:SetVisible(visible)
     self:RefreshOptions()
 end
 
+function DPSPulseForever:ApplyCollapsedState()
+    local frame = self.ui.frame
+    if not frame then
+        return
+    end
+
+    frame:SetSize(COLLAPSED_SIZE, COLLAPSED_SIZE)
+    frame.title:Hide()
+    frame.lockStatus:Hide()
+    frame.closeButton:Hide()
+    frame.collapseButton:Hide()
+    self.ui.dpsText:Hide()
+    self.ui.sessionText:Hide()
+    self.ui.peakText:Hide()
+    self.ui.graph:Hide()
+
+    local textures = frame.skinTextures
+    textures.header:Hide()
+    textures.headerHighlight:Hide()
+    textures.headerAccent:Hide()
+    textures.headerShadow:Hide()
+    frame.expandButton:Show()
+end
+
+function DPSPulseForever:SetCollapsed(collapsed)
+    DPSPulseForeverDB.collapsed = collapsed == true
+
+    if self.ui.frame then
+        if DPSPulseForeverDB.collapsed then
+            self:ApplyCollapsedState()
+        else
+            local frame = self.ui.frame
+            frame:SetSize(FULL_WIDTH, FULL_HEIGHT)
+            frame.expandButton:Hide()
+            frame.title:Show()
+            frame.lockStatus:Show()
+            self.ui.dpsText:Show()
+            self.ui.sessionText:Show()
+            self.ui.peakText:Show()
+            self.ui.graph:Show()
+            self:ApplySkin(DPSPulseForeverDB.skin)
+        end
+    end
+
+    self:RefreshOptions()
+end
+
+function DPSPulseForever:SetAutoCollapse(enabled)
+    DPSPulseForeverDB.autoCollapse = enabled == true
+    self:RefreshOptions()
+end
+
 function DPSPulseForever:SetLocked(locked)
     DPSPulseForeverDB.locked = locked == true
     self:UpdateLockStatus()
@@ -604,8 +670,10 @@ function DPSPulseForever:ApplySkin(skin)
         frame.title:SetPoint("TOP", frame, "TOP", 0, -9)
         frame.title:SetTextColor(1.0, 0.82, 0.20, 1)
         frame.lockStatus:ClearAllPoints()
-        frame.lockStatus:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -30, -9)
+        frame.lockStatus:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -52, -9)
         frame.closeButton:Show()
+        frame.collapseButton:ClearAllPoints()
+        frame.collapseButton:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -30, -3)
     else
         frame:SetBackdrop(nil)
         textures.background:Show()
@@ -628,8 +696,14 @@ function DPSPulseForever:ApplySkin(skin)
         frame.title:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -6)
         frame.title:SetTextColor(1, 1, 1, 1)
         frame.lockStatus:ClearAllPoints()
-        frame.lockStatus:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -8)
+        frame.lockStatus:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -30, -8)
         frame.closeButton:Hide()
+        frame.collapseButton:ClearAllPoints()
+        frame.collapseButton:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -3, -3)
+    end
+    frame.collapseButton:Show()
+    if DPSPulseForeverDB.collapsed then
+        self:ApplyCollapsedState()
     end
     self:RefreshOptions()
 end
@@ -645,7 +719,7 @@ function DPSPulseForever:CreateUI()
 
     local frameTemplate = BackdropTemplateMixin and "BackdropTemplate" or nil
     local frame = CreateFrame("Frame", "DPSPulseForeverFrame", UIParent, frameTemplate)
-    frame:SetSize(320, 170)
+    frame:SetSize(FULL_WIDTH, FULL_HEIGHT)
     frame:SetMovable(true)
     frame:SetClampedToScreen(true)
     frame:EnableMouse(true)
@@ -721,6 +795,33 @@ function DPSPulseForever:CreateUI()
     end)
     closeButton:Hide()
     frame.closeButton = closeButton
+
+    local collapseButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    collapseButton:SetSize(20, 20)
+    collapseButton:SetText("-")
+    collapseButton:SetScript("OnClick", function()
+        DPSPulseForever:SetCollapsed(true)
+    end)
+    frame.collapseButton = collapseButton
+
+    local expandButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    expandButton:SetAllPoints(frame)
+    expandButton:SetText("+")
+    expandButton:SetScript("OnClick", function()
+        DPSPulseForever:SetCollapsed(false)
+    end)
+    expandButton:RegisterForDrag("LeftButton")
+    expandButton:SetScript("OnDragStart", function()
+        if not DPSPulseForeverDB.locked then
+            frame:StartMoving()
+        end
+    end)
+    expandButton:SetScript("OnDragStop", function()
+        frame:StopMovingOrSizing()
+        DPSPulseForever:SavePosition()
+    end)
+    expandButton:Hide()
+    frame.expandButton = expandButton
 
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     title:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -6)
@@ -896,6 +997,7 @@ function DPSPulseForever:RefreshOptions()
     self.ui.refreshingOptions = true
     controls.visible:SetChecked(DPSPulseForeverDB.visible)
     controls.locked:SetChecked(DPSPulseForeverDB.locked)
+    controls.autoCollapse:SetChecked(DPSPulseForeverDB.autoCollapse)
     controls.debug:SetChecked(DPSPulseForeverDB.debug)
     controls.classicSkin:SetChecked(DPSPulseForeverDB.skin == "classic")
     controls.blizzardSkin:SetChecked(DPSPulseForeverDB.skin == "blizzard")
@@ -951,8 +1053,18 @@ function DPSPulseForever:CreateOptionsPanel()
     end)
     controls.locked = locked
 
+    local autoCollapse = CreateFrame("CheckButton", "DPSPulseForeverOptionsAutoCollapse", panel, "UICheckButtonTemplate")
+    autoCollapse:SetPoint("TOPLEFT", locked, "BOTTOMLEFT", 0, -4)
+    setCheckButtonText(autoCollapse, "Auto-collapse after combat")
+    autoCollapse:SetScript("OnClick", function(button)
+        if not DPSPulseForever.ui.refreshingOptions then
+            DPSPulseForever:SetAutoCollapse(button:GetChecked() == true)
+        end
+    end)
+    controls.autoCollapse = autoCollapse
+
     local debug = CreateFrame("CheckButton", "DPSPulseForeverOptionsDebug", panel, "UICheckButtonTemplate")
-    debug:SetPoint("TOPLEFT", locked, "BOTTOMLEFT", 0, -4)
+    debug:SetPoint("TOPLEFT", autoCollapse, "BOTTOMLEFT", 0, -4)
     setCheckButtonText(debug, "Debug UNIT_COMBAT events")
     debug:SetScript("OnClick", function(button)
         if not DPSPulseForever.ui.refreshingOptions then
@@ -1132,6 +1244,33 @@ function DPSPulseForever:HandleSlash(msg)
         return
     end
 
+    if command == "collapse" then
+        self:SetCollapsed(true)
+        return
+    end
+
+    if command == "expand" then
+        self:SetCollapsed(false)
+        return
+    end
+
+    local autoCollapseValue = command:match("^autocollapse%s+(%a+)$")
+    if autoCollapseValue == "on" or autoCollapseValue == "off" then
+        self:SetAutoCollapse(autoCollapseValue == "on")
+        chat("Auto-collapse " .. autoCollapseValue .. ".")
+        return
+    end
+
+    if command == "status" then
+        chat(string.format(
+            "Window is %s, %s, and auto-collapse is %s.",
+            DPSPulseForeverDB.visible and "visible" or "hidden",
+            DPSPulseForeverDB.collapsed and "collapsed" or "expanded",
+            DPSPulseForeverDB.autoCollapse and "on" or "off"
+        ))
+        return
+    end
+
     local windowValue = command:match("^window%s+([%d%.]+)$")
     if windowValue then
         local seconds = clamp(tonumber(windowValue) or defaults.windowSeconds, 2, 60)
@@ -1163,7 +1302,7 @@ function DPSPulseForever:HandleSlash(msg)
         return
     end
 
-    chat("Commands: show, hide, toggle, window <2-60>, scale <0.5-2>, lock, unlock, reset, resetposition, skin <classic|blizzard>, debug")
+    chat("Commands: show, hide, toggle, collapse, expand, autocollapse <on|off>, status, window <2-60>, scale <0.5-2>, lock, unlock, reset, resetposition, skin <classic|blizzard>, debug")
 end
 
 function DPSPulseForever:HandleEvent(event, ...)
